@@ -10,7 +10,7 @@ internal static class Startup
         services
             .AddIdentity<ApplicationUser, ApplicationRole>(options =>
                 {
-                    options.Password.RequiredLength = 6;
+                    options.Password.RequiredLength = 4;
                     options.Password.RequireDigit = false;
                     options.Password.RequireLowercase = false;
                     options.Password.RequireNonAlphanumeric = false;
