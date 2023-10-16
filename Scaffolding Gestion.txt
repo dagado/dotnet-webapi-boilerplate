@@ -1,0 +1,2 @@
+#Scaffold-DbContext "Data Source=localhost;Initial Catalog=delnogal;User Id=sa;Password=vw6aVq6d68a$;MultipleActiveResultSets=True;TrustServerCertificate=True" Microsoft.EntityFrameworkCore.SqlServer -Schema dbo -Context GestionDbContext -Contextdir Gestion -OutputDir Gestion\Models -force -NoOnConfiguring
+Scaffold-DbContext "Name=GestionSettings:ConnectionString" Microsoft.EntityFrameworkCore.SqlServer -Schema dbo -Context GestionDbContext -Contextdir ..\Infraestructure\Gestion -ContextNamespace FSH.WebApi.Infrastructure.Gestion -OutputDir Gestion -force -NoOnConfiguring

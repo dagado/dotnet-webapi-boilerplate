@@ -1,0 +1,5 @@
+{
+  "GestionSettings": {
+    "ConnectionString": "Data Source=localhost;Initial Catalog=delnogal;User Id=sa;Password=vw6aVq6d68a$;MultipleActiveResultSets=True;TrustServerCertificate=True"
+  }
+}

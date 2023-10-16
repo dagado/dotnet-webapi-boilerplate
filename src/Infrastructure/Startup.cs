@@ -6,6 +6,7 @@ using FSH.WebApi.Infrastructure.Caching;
 using FSH.WebApi.Infrastructure.Common;
 using FSH.WebApi.Infrastructure.Cors;
 using FSH.WebApi.Infrastructure.FileStorage;
+using FSH.WebApi.Infrastructure.Gestion;
 using FSH.WebApi.Infrastructure.Localization;
 using FSH.WebApi.Infrastructure.Mailing;
 using FSH.WebApi.Infrastructure.Mapping;
@@ -52,6 +53,7 @@ public static class Startup
             .AddPersistence()
             .AddRequestLogging(config)
             .AddRouting(options => options.LowercaseUrls = true)
+            .AddGestion(config)
             .AddServices();
     }
 
