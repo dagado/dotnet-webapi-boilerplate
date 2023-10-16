@@ -6,10 +6,13 @@ using FSH.WebApi.Application.Common.Exceptions;
 using FSH.WebApi.Application.Identity.Tokens;
 using FSH.WebApi.Infrastructure.Auth;
 using FSH.WebApi.Infrastructure.Auth.Jwt;
+using FSH.WebApi.Infrastructure.Gestion;
+using FSH.WebApi.Domain.Gestion;
 using FSH.WebApi.Infrastructure.Multitenancy;
 using FSH.WebApi.Shared.Authorization;
 using FSH.WebApi.Shared.Multitenancy;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -23,19 +26,22 @@ internal class TokenService : ITokenService
     private readonly SecuritySettings _securitySettings;
     private readonly JwtSettings _jwtSettings;
     private readonly FSHTenantInfo? _currentTenant;
+    private readonly GestionDbContext _gestionDb;
 
     public TokenService(
         UserManager<ApplicationUser> userManager,
         IOptions<JwtSettings> jwtSettings,
         IStringLocalizer<TokenService> localizer,
         FSHTenantInfo? currentTenant,
-        IOptions<SecuritySettings> securitySettings)
+        IOptions<SecuritySettings> securitySettings,
+        GestionDbContext gestionDb)
     {
         _userManager = userManager;
         _t = localizer;
         _jwtSettings = jwtSettings.Value;
         _currentTenant = currentTenant;
         _securitySettings = securitySettings.Value;
+        _gestionDb = gestionDb;
     }
 
     public async Task<TokenResponse> GetTokenAsync(TokenRequest request, string ipAddress, CancellationToken cancellationToken)
@@ -44,7 +50,11 @@ internal class TokenService : ITokenService
             || await _userManager.FindByEmailAsync(request.Email.Trim().Normalize()) is not { } user
             || !await _userManager.CheckPasswordAsync(user, request.Password))
         {
-            throw new UnauthorizedException(_t["Authentication Failed."]);
+            user = await GetGestionOperario(request.Email, request.Password);
+            if (user == null)
+            {
+                throw new UnauthorizedException(_t["Authentication Failed."]);
+            }
         }
 
         if (!user.IsActive)
@@ -71,6 +81,55 @@ internal class TokenService : ITokenService
         }
 
         return await GenerateTokensAndUpdateUser(user, ipAddress);
+    }
+
+    public async Task<ApplicationUser> GetGestionOperario(string usuario, string password)
+    {
+        IdentityResult? identityResult = null;
+
+        // busca el usuario en la bbdd de gestión
+        TbOperario? operario = await _gestionDb.TbOperarios.FirstOrDefaultAsync(o => o.Usuario == usuario && o.Password == password);
+        if (operario == null || operario.Email == null)
+            throw new UnauthorizedException(_t["Authentication Failed."]);
+
+        // busca el email de gestión en la bbdd
+        ApplicationUser nuevoUsuario = await _userManager.FindByEmailAsync(operario.Email.Trim().Normalize());
+
+        if (nuevoUsuario != null)
+        {
+            // comprueba contraseña
+            bool passwordOk = await _userManager.CheckPasswordAsync(nuevoUsuario, operario.Password);
+
+            // si la contraseña no es igual al registro de gestión, se actualiza
+            if (!passwordOk)
+            {
+                nuevoUsuario.PasswordHash = _userManager.PasswordHasher.HashPassword(nuevoUsuario, operario.Password);
+                identityResult = await _userManager.UpdateAsync(nuevoUsuario);
+                if (identityResult.Succeeded)
+                    return nuevoUsuario;
+                else
+                    throw new UnauthorizedException(_t["Authentication Failed."]);
+            } else
+            {
+                return nuevoUsuario;
+            }
+        }
+
+        // intenta crear el nuevo usuario
+        nuevoUsuario = new ApplicationUser()
+        {
+            Email = operario.Email,
+            UserName = operario.Usuario,
+            FirstName = operario.Nombre,
+            IsActive = true,
+            EmailConfirmed = true,
+        };
+
+        var result = await _userManager.CreateAsync(nuevoUsuario, operario.Password);
+        if (result != IdentityResult.Success)
+            throw new UnauthorizedException(_t[result.ToString()]);
+
+        return await _userManager.FindByEmailAsync(nuevoUsuario.Email);
     }
 
     public async Task<TokenResponse> RefreshTokenAsync(RefreshTokenRequest request, string ipAddress)
